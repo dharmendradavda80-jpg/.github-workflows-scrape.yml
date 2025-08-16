@@ -3,6 +3,28 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import re
 import os
+from PyPDF2 import PdfReader
+from io import BytesIO
+def extract_from_pdf(url):
+    try:
+        r = requests.get(url, timeout=20)
+        pdf = PdfReader(BytesIO(r.content))
+        text = ""
+        for page in pdf.pages[:10]:  # only first 10 pages for speed
+            text += page.extract_text() + "\n"
+
+        # Regex search for Scope 1/2/3
+        scope1 = re.search(r"Scope[\s-]*1[^0-9]{0,10}([\d,\.]+.*?CO2e)", text, re.IGNORECASE)
+        scope2 = re.search(r"Scope[\s-]*2[^0-9]{0,10}([\d,\.]+.*?CO2e)", text, re.IGNORECASE)
+        scope3 = re.search(r"Scope[\s-]*3[^0-9]{0,10}([\d,\.]+.*?CO2e)", text, re.IGNORECASE)
+
+        return {
+            "scope1": scope1.group(1) if scope1 else "",
+            "scope2": scope2.group(1) if scope2 else "",
+            "scope3": scope3.group(1) if scope3 else ""
+        }
+    except:
+        return {"scope1": "", "scope2": "", "scope3": ""}
 
 DATA_FILE = "data/ghg_records.csv"
 
@@ -20,6 +42,30 @@ def fetch_data(url):
         soup = BeautifulSoup(r.text, "html.parser")
 
         text = soup.get_text(" ", strip=True)
+        # Existing HTML text scraping
+text = soup.get_text()
+
+# Find PDF link
+pdf_link = ""
+for a in soup.find_all("a", href=True):
+    if "annual report" in a.text.lower() or "sustainability report" in a.text.lower():
+        pdf_link = a['href']
+        if pdf_link.startswith("/"):
+            pdf_link = url.rsplit("/", 1)[0] + pdf_link
+        break
+
+# Extract Scope data from PDF
+pdf_data = extract_from_pdf(pdf_link) if pdf_link else {"scope1": "", "scope2": "", "scope3": ""}
+
+# Merge PDF data with existing regex (if any)
+data = {
+    "scope1": pdf_data["scope1"],
+    "scope2": pdf_data["scope2"],
+    "scope3": pdf_data["scope3"],
+    "renewable_energy": "",  # keep your existing code for RE
+    "raw_info": text[:500]   # first 500 chars of raw HTML/text
+}
+
         text = " ".join(text.split())  # clean extra spaces
 
         # Regex patterns
