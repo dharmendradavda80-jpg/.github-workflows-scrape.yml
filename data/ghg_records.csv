@@ -1,6 +1,6 @@
-company,url,raw_info
-Reliance Industries,https://www.ril.com/Sustainability/Reports.aspx,404 Page | RIL
-TCS,https://www.tcs.com/sustainability,Page Not Found
-Infosys,https://www.infosys.com/sustainability,Infosys - ESG
-HDFC Bank,https://www.hdfcbank.com/sustainability,No data
-ICICI Bank,https://www.icicibank.com/aboutus/sustainability,403 Forbidden
+company,url,scope1,scope2,scope3,renewable_energy,raw_info
+Reliance Industries,https://www.ril.com/Sustainability/Reports.aspx,,,,,404 Page | RIL Skip to main content Fix Letter Spacing eB2B eB2B Customers Petrochemical Product Datasheets Petrochemicals: New Customer Inquiry Suppliers E&P Notices for EOI eProcurement eBiz Retail Vendor Registration RIL Business Partner Code Of Conduct (BPCOC) Notices Notice Inviting Offer - Sale Of Gas From Block KG-DWN-98/3 Notice Inviting Offer - Sale Of Gas From CBM Block SP (West) - CBM-2001/1 Notice Inviting Tender - Sale Of Crude Oil from Block KG-DWN-98/3 Notice Inviting Offer – Sale
+TCS,https://www.tcs.com/sustainability,,,,,"Page Not Found Skip to main content Skip to footer Click here or press enter to go to homepage What we do Who we are Insights Careers Newsroom Investors Worldwide Contact us Search Button tata.com logo Open in New Tab Perpetually Adaptive Enterprise Press tab for submenu items Where adaptability meets advantage At TCS, we don’t just help businesses transform. We help them become perpetually adaptive enterprises, built to evolve continuously and confidently in a world of constant change. Adaptabi"
+Infosys,https://www.infosys.com/sustainability,,,,,Infosys - ESG Navigate your next Infosys Knowledge Institute Investors Careers search cross Search Hit enter to search or ESC to close Navigate your next Industries Services Platforms Infosys Knowledge Institute About Us Investors Careers Newsroom Contact Us Being Resilient. That's Live Enterprise. Digital Core Capabilities Digital Operating Model Empowering Talent Transformations Tales of Transformation Industries Aerospace & Defense Agriculture Automotive Chemical Manufacturing Communication S
+HDFC Bank,https://www.hdfcbank.com/sustainability,,,,,"Something is wrong The page you were looking for was moved, removed, renamed or might have never existed. Go Home"
+ICICI Bank,https://www.icicibank.com/aboutus/sustainability,,,,,403 Forbidden 403 Forbidden Microsoft-Azure-Application-Gateway/v2
