@@ -1,46 +1,40 @@
-name: Run ESG Scraper
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import os
 
-on:
-  workflow_dispatch:   # run manually
-  schedule:
-    - cron: "0 0 * * 0"   # run every Sunday at midnight UTC
+DATA_FILE = "data/ghg_records.csv"
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+COMPANIES = [
+    {"name": "Reliance Industries", "url": "https://www.ril.com/Sustainability/Reports.aspx"},
+    {"name": "Infosys", "url": "https://www.infosys.com/sustainability"},
+]
 
-    permissions:
-      contents: write   # allow pushing changes
+def fetch_data(url):
+    try:
+        r = requests.get(url, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        text = soup.get_text(" ", strip=True)
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+        # Simple test: just check if words "Scope 1/2/3" exist
+        return {
+            "scope1": "FOUND" if "scope 1" in text.lower() else "",
+            "scope2": "FOUND" if "scope 2" in text.lower() else "",
+            "scope3": "FOUND" if "scope 3" in text.lower() else "",
+            "raw_info": text[:300]
+        }
+    except Exception as e:
+        return {"scope1": "", "scope2": "", "scope3": "", "raw_info": f"Error: {e}"}
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+def main():
+    os.makedirs("data", exist_ok=True)
+    rows = []
+    for c in COMPANIES:
+        info = fetch_data(c["url"])
+        rows.append({"company": c["name"], "url": c["url"], **info})
+    df = pd.DataFrame(rows)
+    df.to_csv(DATA_FILE, index=False)
+    print("✅ Data written to", DATA_FILE)
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 pandas PyPDF2
-
-      - name: Run scraper
-        run: python scraper.py
-
-      - name: Save CSV snapshot with date
-        run: |
-          mkdir -p data/history
-          DATE=$(date +'%Y-%m-%d')
-          cp data/ghg_records.csv data/history/ghg_records_$DATE.csv
-
-      - name: Commit updated CSVs
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ghg_records.csv
-          git add data/history/
-          git commit -m "Auto-update ESG data ($DATE) [skip ci]" || echo "No changes to commit"
-          git push
-df.to_csv("data/ghg_records.csv", index=False)
+if __name__ == "__main__":
+    main()
