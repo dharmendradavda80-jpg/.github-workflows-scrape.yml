@@ -2,6 +2,7 @@ import pandas as pd
 import requests
 from PyPDF2 import PdfReader
 from io import BytesIO
+import re
 
 # Hardcoded correct URLs for each company
 COMPANIES = [
@@ -38,13 +39,57 @@ def extract_pdf_text(url: str) -> str:
         pdf = PdfReader(BytesIO(response.content))
 
         text = []
-        for page in pdf.pages[:5]:  # limit to first 5 pages for speed
+        for page in pdf.pages[:10]:  # check first 10 pages
             text.append(page.extract_text() or "")
 
         return "\n".join(text).strip()
 
     except Exception as e:
         return f"Error extracting PDF: {e}"
+
+
+def parse_esg_data(text: str) -> dict:
+    """Extract Scope 1/2/3 emissions and renewable energy values using regex."""
+
+    def search_pattern(patterns):
+        for p in patterns:
+            match = re.search(p, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    # Pattern explanation:
+    # - ([\d,]+\.?\d*) → number like 12,345.67
+    # - (?:\s*(?:tCO2e?|MTCO2|million tonnes|tons|tC[O₂2]))? → optional units
+    num_with_units = r"([\d,]+\.?\d*\s*(?:tCO2e?|MTCO2|million tonnes|tons|tCO2|tC[O₂2])?)"
+
+    scope1 = search_pattern([
+        rf"Scope\s*1[^0-9]*{num_with_units}",
+        rf"Scope\s*I[^0-9]*{num_with_units}",
+    ])
+
+    scope2 = search_pattern([
+        rf"Scope\s*2[^0-9]*{num_with_units}",
+        rf"Scope\s*II[^0-9]*{num_with_units}",
+    ])
+
+    scope3 = search_pattern([
+        rf"Scope\s*3[^0-9]*{num_with_units}",
+        rf"Scope\s*III[^0-9]*{num_with_units}",
+    ])
+
+    renewable = search_pattern([
+        r"Renewable\s*Energy[^0-9]*([\d,]+\.?\d*\s*%?)",
+        r"Renewables[^0-9]*([\d,]+\.?\d*\s*%?)",
+        r"Green\s*Power[^0-9]*([\d,]+\.?\d*\s*%?)",
+    ])
+
+    return {
+        "scope1": scope1,
+        "scope2": scope2,
+        "scope3": scope3,
+        "renewable_energy": renewable,
+    }
 
 
 def main():
@@ -57,15 +102,26 @@ def main():
         print(f"Processing {company}...")
         text = extract_pdf_text(url)
 
-        rows.append({
-            "company": company,
-            "url": url,
-            "scope1": "",
-            "scope2": "",
-            "scope3": "",
-            "renewable_energy": "",
-            "raw_info": text
-        })
+        if text.startswith("Error"):
+            data = {
+                "company": company,
+                "url": url,
+                "scope1": "",
+                "scope2": "",
+                "scope3": "",
+                "renewable_energy": "",
+                "raw_info": text,
+            }
+        else:
+            parsed = parse_esg_data(text)
+            data = {
+                "company": company,
+                "url": url,
+                **parsed,
+                "raw_info": text[:2000],  # limit for readability
+            }
+
+        rows.append(data)
 
     # Save results to CSV
     df = pd.DataFrame(rows)
