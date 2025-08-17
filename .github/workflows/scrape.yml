@@ -1,34 +1,32 @@
 name: Scrape ESG Data
 
 on:
-  workflow_dispatch: # lets you run manually from GitHub
-  schedule:
-    - cron: "0 12 * * 1" # runs every Monday at 12:00 UTC
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4 pandas PyPDF2
+        run: pip install requests beautifulsoup4 pandas
 
       - name: Run scraper
-        run: |
-          python scraper/scraper.py
+        run: python scraper.py
 
-      - name: Commit results
+      - name: Commit CSV
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add data/ghg_records.csv
-          git commit -m "Update ESG data"
+          git commit -m "Update ESG data" || echo "No changes"
           git push
