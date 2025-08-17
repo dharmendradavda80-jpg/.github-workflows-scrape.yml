@@ -43,3 +43,4 @@ jobs:
           git add data/history/
           git commit -m "Auto-update ESG data ($DATE) [skip ci]" || echo "No changes to commit"
           git push
+df.to_csv("data/ghg_records.csv", index=False)
