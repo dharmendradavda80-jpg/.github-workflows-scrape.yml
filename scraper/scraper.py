@@ -5,7 +5,12 @@ import re
 import os
 from PyPDF2 import PdfReader
 from io import BytesIO
-from urllib.parse import urljoin
+
+# Fake browser headers
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 DATA_FILE = "data/ghg_records.csv"
 
@@ -17,66 +22,62 @@ COMPANIES = [
     {"name": "ICICI Bank", "url": "https://www.icicibank.com/aboutus/annual-reports"},
 ]
 
-KEYWORDS = ["sustain", "annual", "esg", "integrated"]
-
-def extract_from_pdf(url):
+def extract_from_pdf(url: str):
+    """Download a PDF and try to extract Scope 1, 2, 3 data"""
     try:
-        r = requests.get(url, timeout=30)
+        r = requests.get(url, headers=HEADERS, timeout=25)
         r.raise_for_status()
         pdf = PdfReader(BytesIO(r.content))
         text = ""
-        for page in pdf.pages[:10]:  # only scan first 10 pages
-            if page.extract_text():
-                text += page.extract_text() + "\n"
+        for page in pdf.pages[:10]:  # only scan first 10 pages for speed
+            text += page.extract_text() + "\n"
 
-        scope1 = re.search(r"Scope[\s-]*1[^0-9]{0,15}([\d,\.]+.*?(tCO2e|tons|tonnes|MtCO2e|CO2e))", text, re.IGNORECASE)
-        scope2 = re.search(r"Scope[\s-]*2[^0-9]{0,15}([\d,\.]+.*?(tCO2e|tons|tonnes|MtCO2e|CO2e))", text, re.IGNORECASE)
-        scope3 = re.search(r"Scope[\s-]*3[^0-9]{0,15}([\d,\.]+.*?(tCO2e|tons|tonnes|MtCO2e|CO2e))", text, re.IGNORECASE)
-        re_energy = re.search(r"(renewable energy[^0-9]{0,10}([\d,\.]+)\s*%?)", text, re.IGNORECASE)
+        # Regex search for Scope 1/2/3
+        scope1 = re.search(r"Scope[\s-]*1[^0-9]{0,10}([\d,.,]+.*?)\s?(tCO2e|MtCO2e|tons|tonnes|CO2e)?", text, re.IGNORECASE)
+        scope2 = re.search(r"Scope[\s-]*2[^0-9]{0,10}([\d,.,]+.*?)\s?(tCO2e|MtCO2e|tons|tonnes|CO2e)?", text, re.IGNORECASE)
+        scope3 = re.search(r"Scope[\s-]*3[^0-9]{0,10}([\d,.,]+.*?)\s?(tCO2e|MtCO2e|tons|tonnes|CO2e)?", text, re.IGNORECASE)
 
         return {
-            "scope1": scope1.group(1) if scope1 else "",
-            "scope2": scope2.group(1) if scope2 else "",
-            "scope3": scope3.group(1) if scope3 else "",
-            "renewable_energy": re_energy.group(1) if re_energy else "",
-            "raw_info": text[:500]
+            "scope1": scope1.group(0) if scope1 else "",
+            "scope2": scope2.group(0) if scope2 else "",
+            "scope3": scope3.group(0) if scope3 else ""
         }
     except Exception as e:
-        return {"scope1": "", "scope2": "", "scope3": "", "renewable_energy": "", "raw_info": f"PDF error: {e}"}
+        return {"scope1": "", "scope2": "", "scope3": "", "error": f"PDF error: {e}"}
 
-def fetch_data(base_url):
+
+def fetch_data(url: str):
+    """Scrape the company sustainability/annual report page"""
     try:
-        r = requests.get(base_url, timeout=20)
+        r = requests.get(url, headers=HEADERS, timeout=25)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # collect all pdf links
-        pdf_links = []
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if href.lower().endswith(".pdf"):
-                full_link = urljoin(base_url, href)
-                pdf_links.append(full_link)
+        text = soup.get_text(" ", strip=True)
 
-        # rank by keywords
-        chosen_pdf = ""
-        for kw in KEYWORDS:
-            for link in pdf_links:
-                if kw in link.lower():
-                    chosen_pdf = link
-                    break
-            if chosen_pdf:
+        # Try to find a PDF link
+        pdf_link = ""
+        for a in soup.find_all("a", href=True):
+            if "report" in a.text.lower() and a['href'].endswith(".pdf"):
+                pdf_link = a["href"]
+                if pdf_link.startswith("/"):
+                    pdf_link = url.rsplit("/", 1)[0] + pdf_link
                 break
 
-        if chosen_pdf:
-            return extract_from_pdf(chosen_pdf)
-        else:
-            # fallback: capture HTML text
-            text = soup.get_text(" ", strip=True)[:500]
-            return {"scope1": "", "scope2": "", "scope3": "", "renewable_energy": "", "raw_info": f"No PDF found, HTML snippet: {text}"}
+        # Extract PDF data
+        pdf_data = extract_from_pdf(pdf_link) if pdf_link else {"scope1": "", "scope2": "", "scope3": ""}
+
+        return {
+            "scope1": pdf_data.get("scope1", ""),
+            "scope2": pdf_data.get("scope2", ""),
+            "scope3": pdf_data.get("scope3", ""),
+            "renewable_energy": "",  # we can add later
+            "raw_info": text[:500] if text else "No text found",
+        }
 
     except Exception as e:
         return {"scope1": "", "scope2": "", "scope3": "", "renewable_energy": "", "raw_info": f"Error: {e}"}
+
 
 def main():
     rows = []
@@ -93,10 +94,11 @@ def main():
             "raw_info": info["raw_info"]
         })
 
-    os.makedirs("data", exist_ok=True)
     df = pd.DataFrame(rows)
+    os.makedirs("data", exist_ok=True)
     df.to_csv(DATA_FILE, index=False)
     print("✅ Data updated:", DATA_FILE)
+
 
 if __name__ == "__main__":
     main()
