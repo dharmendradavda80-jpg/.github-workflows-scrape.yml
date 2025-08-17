@@ -21,7 +21,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run scraper
-        run: python scraper.py
+        run: python scraper/scraper.py
 
       - name: Commit CSV
         run: |
@@ -30,3 +30,10 @@ jobs:
           git add data/ghg_records.csv
           git commit -m "Update ESG data" || echo "No changes"
           git push
+- name: Commit and push results
+  run: |
+    git config --global user.name "github-actions[bot]"
+    git config --global user.email "github-actions[bot]@users.noreply.github.com"
+    git add data/ghg_records.csv
+    git commit -m "Update GHG data [skip ci]" || echo "No changes to commit"
+    git push
