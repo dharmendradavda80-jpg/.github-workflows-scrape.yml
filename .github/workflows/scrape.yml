@@ -1,14 +1,13 @@
-name: Daily scrape NSE GHG
+name: Scrape ESG Data
 
 on:
+  workflow_dispatch: # lets you run manually from GitHub
   schedule:
-    - cron: "0 0 * * *"   # runs daily at midnight UTC
-  workflow_dispatch:       # allows manual trigger
+    - cron: "0 12 * * 1" # runs every Monday at 12:00 UTC
 
 jobs:
-  scrape:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -20,16 +19,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests beautifulsoup4 pandas
+          pip install requests beautifulsoup4 pandas PyPDF2
 
       - name: Run scraper
         run: |
-          python run_all.py
+          python scraper/scraper.py
 
-      - name: Commit & push updated data
+      - name: Commit results
         run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
           git add data/ghg_records.csv
-          git commit -m "Auto-update GHG data" || echo "No changes"
+          git commit -m "Update ESG data"
           git push
